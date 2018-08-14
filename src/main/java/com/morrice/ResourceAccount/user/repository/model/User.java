@@ -20,7 +20,7 @@ import com.fasterxml.jackson.annotation.JsonProperty.Access;
 import com.morrice.ResourceAccount.user.repository.IUser;
 
 @Entity
-@Table(name = "user")
+@Table(name = "users")
 @DynamicUpdate//Don't Work
 public class User implements IUser {
 

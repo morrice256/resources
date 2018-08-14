@@ -11,14 +11,12 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import com.morrice.ResourceAccount.foundation.comunication.IRequestService;
 import com.morrice.ResourceAccount.foundation.exceptions.ComunicationRestException;
 import com.morrice.ResourceAccount.foundation.model.IModel;
-import com.morrice.ResourceAccount.foundation.model.TokenResponse;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -40,24 +38,6 @@ public class RequestServiceHttp implements IRequestService{
 	@Value("${endpoint.base.auth}")
 	private String baseAuthUrl;
 	
-	@Value("${endpoint.credential.auth.granttype}")
-	private String grantType;
-	
-	@Value("${endpoint.credential.auth.username}")
-	private String username;
-	
-	@Value("${endpoint.credential.auth.password}")
-	private String password;
-	
-	@Value("${endpoint.credential.auth.clientid}")
-	private String clientId;
-	
-	@Value("${endpoint.partial.auth.oauth2}")
-	private String oauthUrl;
-	
-	@Value("${endpoint.credential.auth.basic}")
-	private String basicAuth;
-	
 	@Autowired
 	private RestTemplate restTemplate;
 	
@@ -76,34 +56,8 @@ public class RequestServiceHttp implements IRequestService{
 	 * @throws ComunicationRestException 
 	 */
 	public <T extends IModel> ResponseEntity<T> postMessage(Class<T> iModel, String endpoint, T data) throws ComunicationRestException {
-		HttpHeaders httpHeaders = new HttpHeaders();
-		
-		StringBuilder bearerToken = new StringBuilder("Bearer ");
-		bearerToken.append(getToken());
-		
-		httpHeaders.set("Authorization", bearerToken.toString());
-		return this.postMessage(iModel, endpoint, data, httpHeaders);
-	} 
-	
-	/**
-	 * This method is responsible to send messages another APPS or MicroServices
-	 * Is necessary past token in this method
-	 * TODO: Implement method to process returns and gives back object wait in to response.
-	 * @param iModel
-	 * @param endpoint
-	 * @param Generic Object will by send to post
-	 * @param String
-	 * @return
-	 * @throws ComunicationRestException 
-	 */
-	public <T extends IModel> ResponseEntity<T> postMessage(Class<T> iModel, String endpoint, T data, String token) throws ComunicationRestException {
-		HttpHeaders httpHeaders = new HttpHeaders();
-		
-		StringBuilder bearerToken = new StringBuilder("Bearer ");
-		bearerToken.append(token);
-		
-		httpHeaders.set("Authorization", bearerToken.toString());
-		return this.postMessage(iModel, endpoint, data, httpHeaders);
+		HttpEntity<T> dataToPost = new HttpEntity<>(data);
+		return this.requestExternal(iModel, endpoint, HttpMethod.POST, dataToPost);
 	} 
 	
 	/**
@@ -124,39 +78,25 @@ public class RequestServiceHttp implements IRequestService{
 			return this.requestExternal(iModel, endpoint, HttpMethod.POST, dataToPost);
 			
 		}catch (Exception e) {
-			logger.error("Request External Error: ", e);
+			logger.error("Request External Fail: ", e);
 			throw new ComunicationRestException();
 		}		
 	} 
 	
-	private <T extends IModel> ResponseEntity<T> requestExternal(Class<T> iModel, String endpoint, HttpMethod method, HttpEntity<T> data){
-		StringBuilder url = new StringBuilder(baseAuthUrl);
-		url.append(endpoint);
-		
-		ResponseEntity<T> response = restTemplate.exchange(url.toString(), method,  data, iModel);
-		return response;
+	private <T extends IModel> ResponseEntity<T> requestExternal(Class<T> iModel, String endpoint, HttpMethod method, HttpEntity<T> data) throws ComunicationRestException{
+		try{
+			StringBuilder url = new StringBuilder(baseAuthUrl);
+			url.append(endpoint);
+			
+			ResponseEntity<T> response = restTemplate.exchange(url.toString(), method,  data, iModel);
+			return response;
+		} catch (HttpServerErrorException e) {
+			logger.error("Request External Fail: ", e);
+			throw new ComunicationRestException();
+		} catch (Exception e) {
+			logger.error("Request External Fail: ", e);
+			throw new ComunicationRestException();
+		}
 	}
-
-	public String getToken() {
-		StringBuilder url = new StringBuilder(baseAuthUrl);
-		url.append(oauthUrl);
-		
-		StringBuilder basicAuthToken = new StringBuilder("Basic ");
-		basicAuthToken.append(basicAuth);
-		
-		HttpHeaders httpHeaders = new HttpHeaders();
-		httpHeaders.set("Authorization", basicAuthToken.toString());
-		
-		MultiValueMap<String, String> body = new LinkedMultiValueMap<String, String>();     
-		body.add("grant_type", grantType);
-		body.add("username", username);
-		body.add("password", password);
-		body.add("client_id", clientId);
-		
-		HttpEntity<?> request = new HttpEntity<Object>(body, httpHeaders);
-		ResponseEntity<TokenResponse> response = restTemplate.exchange(url.toString(), HttpMethod.POST, request, TokenResponse.class);
-		
-		return response.getBody().getAccesstoken();
-	}	
 
 }
