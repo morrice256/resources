@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.morrice.ResourceAccount.foundation.exceptions.ComunicationRestException;
+import com.morrice.ResourceAccount.foundation.exceptions.ConflictRestException;
+import com.morrice.ResourceAccount.foundation.exceptions.NotFoundException;
 import com.morrice.ResourceAccount.user.business.IUserBusiness;
 import com.morrice.ResourceAccount.user.repository.IUser;
 import com.morrice.ResourceAccount.user.repository.model.User;
@@ -30,7 +33,7 @@ public class UserController {
 	}
 	
 	@GetMapping("/{id}")
-	public Optional<User> findById(@PathVariable Integer id) {		
+	public Optional<User> findById(@PathVariable Integer id) throws ComunicationRestException, ConflictRestException, NotFoundException {		
 		return userBusiness.findById(id);		
 	}
 	

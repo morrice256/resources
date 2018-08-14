@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpServerErrorException;
@@ -16,6 +17,8 @@ import org.springframework.web.client.RestTemplate;
 
 import com.morrice.ResourceAccount.foundation.comunication.IRequestService;
 import com.morrice.ResourceAccount.foundation.exceptions.ComunicationRestException;
+import com.morrice.ResourceAccount.foundation.exceptions.ConflictRestException;
+import com.morrice.ResourceAccount.foundation.exceptions.NotFoundException;
 import com.morrice.ResourceAccount.foundation.model.IModel;
 
 import lombok.extern.slf4j.Slf4j;
@@ -47,18 +50,36 @@ public class RequestServiceHttp implements IRequestService{
 	}
 	
 	/**
-	 * This method is responsible to send messages another APPS or MicroServices
+	 * This method is responsible to post messages another APPS or MicroServices
 	 * TODO: Implement method to process returns and gives back object wait in to response.
 	 * @param iModel
 	 * @param endpoint
 	 * @param Generic Object will by send to post
 	 * @return
 	 * @throws ComunicationRestException 
+	 * @throws NotFoundException 
+	 * @throws ConflictRestException 
 	 */
-	public <T extends IModel> ResponseEntity<T> postMessage(Class<T> iModel, String endpoint, T data) throws ComunicationRestException {
+	public <T extends IModel> ResponseEntity<T> postMessage(Class<T> iModel, String endpoint, T data) throws ComunicationRestException, ConflictRestException, NotFoundException {
 		HttpEntity<T> dataToPost = new HttpEntity<>(data);
 		return this.requestExternal(iModel, endpoint, HttpMethod.POST, dataToPost);
 	} 
+	
+	/**
+	 * This method is responsible to post messages another APPS or MicroServices
+	 * TODO: Implement method to process returns and gives back object wait in to response.
+	 * @param iModel
+	 * @param endpoint
+	 * @param Generic Object will by send to post
+	 * @return
+	 * @throws ComunicationRestException 
+	 * @throws NotFoundException 
+	 * @throws ConflictRestException 
+	 */
+	public <T extends IModel> ResponseEntity<T> getEntity(Class<T> iModel, String endpoint) throws ComunicationRestException, ConflictRestException, NotFoundException {
+		return this.requestExternal(iModel, endpoint, HttpMethod.GET, null);
+	} 
+	
 	
 	/**
 	 * This method is responsible to effectively communication with another APPS or MicroServices
@@ -83,16 +104,23 @@ public class RequestServiceHttp implements IRequestService{
 		}		
 	} 
 	
-	private <T extends IModel> ResponseEntity<T> requestExternal(Class<T> iModel, String endpoint, HttpMethod method, HttpEntity<T> data) throws ComunicationRestException{
+	private <T extends IModel> ResponseEntity<T> requestExternal(Class<T> iModel, String endpoint, HttpMethod method, HttpEntity<T> data) throws ComunicationRestException, ConflictRestException, NotFoundException{
 		try{
 			StringBuilder url = new StringBuilder(baseAuthUrl);
 			url.append(endpoint);
-			
 			ResponseEntity<T> response = restTemplate.exchange(url.toString(), method,  data, iModel);
 			return response;
 		} catch (HttpServerErrorException e) {
-			logger.error("Request External Fail: ", e);
-			throw new ComunicationRestException();
+			if(HttpStatus.CONFLICT == e.getStatusCode()) {
+				logger.error("ConflictRestException: ", e);
+				throw new ConflictRestException();
+			} else if (HttpStatus.NOT_FOUND == e.getStatusCode()) {
+				logger.error("NotFoundException: ", e);
+				throw new NotFoundException();
+			} else {
+				logger.error("Request External Fail: ", e);			
+				throw new ComunicationRestException();
+			}
 		} catch (Exception e) {
 			logger.error("Request External Fail: ", e);
 			throw new ComunicationRestException();
